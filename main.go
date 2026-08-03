@@ -34,12 +34,21 @@ func readiness(w http.ResponseWriter, r *http.Request) {
 func (cfg *apiConfig) handlerMetrics(w http.ResponseWriter, r *http.Request) {
 	// Load the current value atomically
 	hits := cfg.fileserverHits.Load()
-	
-	// Set the content type to plain text (optional but recommended)
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	
+		
 	// Write the formatted response
-	fmt.Fprintf(w, "Hits: %d\n", hits)
+	htmlContent := fmt.Sprintf(
+		`<html>
+	<body>
+		<h1>Welcome, Chirpy Admin</h1>
+		<p>Chirpy has been visited %d times!</p>
+	</body>
+	</html>`,
+		hits,
+	)
+
+	// Set the content type to html text 
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprint(w, htmlContent)
 }   
 func (cfg *apiConfig) handlerReset(w http.ResponseWriter, r *http.Request) {
 	// Atomically reset the counter to 0
@@ -57,9 +66,9 @@ func main() {
 
 	fs := http.FileServer(http.Dir("."))
 	mux.Handle("/app/", cfg.middlewareMetricsInc(http.StripPrefix("/app/", fs)))
-	mux.HandleFunc("GET /healthz", readiness)
-	mux.HandleFunc("GET /metrics", cfg.handlerMetrics)
-	mux.HandleFunc("POST /reset", cfg.handlerReset)
+	mux.HandleFunc("GET /api/healthz", readiness)
+	mux.HandleFunc("GET /admin/metrics", cfg.handlerMetrics)
+	mux.HandleFunc("POST /admin/reset", cfg.handlerReset)
 	
 	server := http.Server{
 		Addr:    ":8080",
