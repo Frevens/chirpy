@@ -1,0 +1,15 @@
+# Environment variables
+.env
+
+# Compiled binaries
+out
+bin/
+
+# Go build files
+*.exe
+
+# Editor settings
+.vscode/
+
+# OS generated files
+.DS_Store
