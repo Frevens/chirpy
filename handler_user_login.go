@@ -6,18 +6,19 @@ import (
 	"time"
 
 	"github.com/Frevens/chirpy/internal/auth"
+	"github.com/Frevens/chirpy/internal/database"
 )
 
 type loginResponse struct {
 	User
-	Token string `json:"token"`
+	Token        string `json:"token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 func (cfg *apiConfig) handlerUserLogin(w http.ResponseWriter, r *http.Request) {
 	var requestData struct {
-		Email            string `json:"email"`
-		Password         string `json:"password"`
-		ExpiresInSeconds int    `json:"expires_in_seconds,omitempty"` // opcional
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
@@ -48,20 +49,27 @@ func (cfg *apiConfig) handlerUserLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Calcular TTL: por defecto 1 hora, si se especifica usarlo, pero nunca > 1 hora.
-	const maxSeconds = 3600
-	expires := requestData.ExpiresInSeconds
-	if expires <= 0 {
-		expires = maxSeconds
-	}
-	if expires > maxSeconds {
-		expires = maxSeconds
-	}
-
-	// Generar token (la función en el paquete auth debe aceptar id y duración).
-	token, err := auth.MakeJWT(user.ID, cfg.jwtSecret, time.Duration(expires)*time.Second)
+	// Generar access token JWT con expiración fija de 1 hora.
+	const accessTokenTTL = time.Hour
+	token, err := auth.MakeJWT(user.ID, cfg.jwtSecret, accessTokenTTL)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Failed to generate token")
+		return
+	}
+
+	// Generar refresh token, guardarlo en la base de datos con expiración a 60 días.
+	refreshToken := auth.MakeRefreshToken()
+
+	const refreshDays = 60
+	expiresAt := time.Now().UTC().Add(time.Hour * 24 * refreshDays)
+
+	_, err = cfg.db.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
+		Token:     refreshToken,
+		UserID:    user.ID,
+		ExpiresAt: expiresAt,
+	})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to store refresh token")
 		return
 	}
 
@@ -73,6 +81,7 @@ func (cfg *apiConfig) handlerUserLogin(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt: user.UpdatedAt,
 			Email:     user.Email,
 		},
-		Token: token,
+		Token:        token,
+		RefreshToken: refreshToken,
 	})
 }
