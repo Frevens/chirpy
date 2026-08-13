@@ -30,6 +30,3 @@ func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 		resp,
 	)
 }
-
-
-

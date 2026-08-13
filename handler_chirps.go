@@ -5,13 +5,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Frevens/chirpy/internal/auth"
 	"github.com/Frevens/chirpy/internal/database"
 	"github.com/google/uuid"
 )
 
 type createChirpRequest struct {
-	Body   string `json:"body"`
-	UserID string `json:"user_id"`
+	Body string `json:"body"`
 }
 
 type chirpResponse struct {
@@ -38,7 +38,6 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-
 	if len(params.Body) > 140 {
 		respondWithError(
 			w,
@@ -48,25 +47,26 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-
 	cleanedBody := cleanChirp(params.Body)
 
+	// Autenticación: extraer bearer token y validar JWT
 
-	userID, err := uuid.Parse(params.UserID)
+	token, err := auth.GetBearerToken(r.Header)
 	if err != nil {
-		respondWithError(
-			w,
-			http.StatusBadRequest,
-			"Invalid user_id",
-		)
+		respondWithError(w, http.StatusUnauthorized, "missing or invalid authorization header")
 		return
 	}
 
+	userID, err := auth.ValidateJWT(token, cfg.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "invalid token")
+		return
+	}
 
 	chirp, err := cfg.db.CreateChirp(
 		r.Context(),
 		database.CreateChirpParams{
-			Body: cleanedBody,
+			Body:   cleanedBody,
 			UserID: userID,
 		},
 	)
@@ -80,15 +80,13 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-
 	response := chirpResponse{
-		ID: chirp.ID,
+		ID:        chirp.ID,
 		CreatedAt: chirp.CreatedAt,
 		UpdatedAt: chirp.UpdatedAt,
-		Body: chirp.Body,
-		UserID: chirp.UserID,
+		Body:      chirp.Body,
+		UserID:    chirp.UserID,
 	}
-
 
 	respondWithJSON(
 		w,

@@ -11,13 +11,13 @@ type cleanResponse struct {
 }
 
 type parameters struct {
-	Body string `json:"body"`
+	Body   string `json:"body"`
 	UserID string `json:"user_id"`
 }
 
 var listOfBannedWords = []string{
-	"kerfuffle", 
-	"sharbert", 
+	"kerfuffle",
+	"sharbert",
 	"fornax",
 }
 
