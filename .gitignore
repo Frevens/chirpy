@@ -12,5 +12,16 @@ bin/
 # Editor settings
 .vscode/
 
+# Local database/reset artifacts
+*.db
+*.sqlite
+*.sqlite3
+resetdb.sh
+
+# Go test / coverage artifacts
+coverage.out
+coverage.html
+*.cover
+
 # OS generated files
 .DS_Store
